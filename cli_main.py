@@ -4,7 +4,7 @@ import traceback
 from IoV_Handler.ws_event_handler import initialize_process
 from ws_handler import ws_handler
 
-url = r"ws://106.52.118.105:9961/ws"
+url = r"ws://106.52.118.105:9961/ws_vehicle"
 
 
 async def ws_cli_main():

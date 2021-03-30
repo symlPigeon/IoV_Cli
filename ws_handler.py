@@ -12,6 +12,9 @@ class ws_handler():
     websockets 通信类
     '''
 
+    __CAR_ID = 1
+    __CAR_PRIVATE_SESSION_KEY = "b7ab30a912521ac36e433a5cfc8b5c1037884487af45ae5311ced235ee77faef"
+
     def __init__(self, url):
         '''
         构造类
@@ -56,6 +59,10 @@ class ws_handler():
         '''
         for msg in self.__send_queue:
             try:
+                data = json.dumps(dict(
+                    id=self.__CAR_ID,
+                    data=data
+                ))
                 await self.__websocket.send(msg)
             except:
                 return  # 万一没发送成功，那就不remove消息队列里面的东西了
