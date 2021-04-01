@@ -36,6 +36,14 @@ class ws_handler():
         # print("recv msg" + msg)
         self.__message_queue.append(msg)
 
+    async def __process_msg_signal(self, msg: dict) -> None:
+        if msg['data_to_send'] is not None:
+            self.__send_queue.append(msg["data_to_send"])
+        if msg['signal']=='PREPARE_FOR_BLUETOOTH':
+            self.__message_queue.append("PREPARE_FOR_BLUETOOTH")    #...
+        # if msg['signal']=='UNLOCKED':
+        #     self.set_time_task() #连续认证的定时
+
     async def __processor_handler(self) -> None:
         '''
         加工者，从消息队列__message_queue中抓取最早的信息，进行处理之后放入待发送队列__send_queue
@@ -45,12 +53,7 @@ class ws_handler():
             return
         msg = ws_event_handler.event_handler(self.__message_queue[0])  # 这里是调用消息处理的函数
         self.__message_queue.remove(self.__message_queue[0])
-        if msg['data_to_send'] is not None:
-            self.__send_queue.append(msg["data_to_send"])
-        if msg['signal']=='PREPARE_FOR_BLUETOOTH':
-            self.__message_queue.append("PREPARE_FOR_BLUETOOTH")    #...
-        if msg['signal']=='UNLOCKED':
-            self.set_time_task() #连续认证的定时
+        self.__process_msg_signal(msg)
 
     async def __consumer_handler(self) -> None:
         '''
