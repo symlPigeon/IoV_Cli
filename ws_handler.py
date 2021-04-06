@@ -11,10 +11,6 @@ class ws_handler():
     '''
     websockets 通信类
     '''
-
-    __CAR_ID = 1
-    __CAR_PRIVATE_SESSION_KEY = "b7ab30a912521ac36e433a5cfc8b5c1037884487af45ae5311ced235ee77faef"
-
     def __init__(self, url):
         '''
         构造类
@@ -26,6 +22,10 @@ class ws_handler():
         self.__running_list = {}  # 定时任务队列
         self.__url = url  # 服务器url
         self.__occupiedState = False
+        with open("session_key", "r") as key_file:
+            data = key_file.read()
+            self.__CAR_ID = data.split('\n')[0]
+            self.__CAR_PRIVATE_SESSION_KEY = data.split('\n')[1]
 
     async def __producer_handler(self) -> None:
         '''
@@ -43,7 +43,7 @@ class ws_handler():
         '''
         if not self.__message_queue:
             return
-        msg = ws_event_handler.event_handler(self.__message_queue[0])  # 这里是调用消息处理的函数
+        msg = ws_event_handler.event_handler(self, self.__message_queue[0])  # 这里是调用消息处理的函数
         self.__message_queue.remove(self.__message_queue[0])
         self.__send_queue.append(msg)
 
@@ -189,3 +189,15 @@ class ws_handler():
         :return: None
         """
         self.__running_list = {}
+
+    def get_car_id(self) -> int:
+        """
+        返回对应的车辆id
+        """
+        return self.__CAR_ID
+
+    def get_session_key(self) -> str:
+        """
+        返回车辆对应的session key。。。
+        """
+        return self.__CAR_PRIVATE_SESSION_KEY
