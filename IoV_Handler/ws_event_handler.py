@@ -1,6 +1,6 @@
 import json
 import time
-from typing import List
+from typing import List, Union
 
 '''
 // server to car
@@ -67,7 +67,7 @@ def json_parser(data: str) -> List:
         return [UNEXPECTED_DATA, "Missing Value", int(time.time())]
 
 
-def event_handler(data: str) -> str:
+def event_handler(data: str) -> Union[str, bytes]:
     # 事件处理
     # 1. producer方法通过websocket接收到服务器端发送的消息，存入message_queue队列中。
     # 2. processor按照顺序读取message_queue中的数据，发送到这里处理。
@@ -75,34 +75,31 @@ def event_handler(data: str) -> str:
     [event, dat, timestamp] = json_parser(data)
 
     msg = ""
-    data_to_diliver={'signal':None,'data_to_send':None}
     if event == UNLOCK_READY:
         # function for rent the car
         msg = "i'm ok!"
         reply_id = REPLY_MSG
-        data_to_diliver['data_to_send'] = encrypt(json.dumps(json_data_constructor(reply_id, msg, int(timestamp))))
-
+        
     elif event == PUSH_HASH:
         # recv feature data
         reply_id = REPLY_MSG
-        data_to_diliver['signal']='PREPARE_FOR_BLUETOOTH'
 
     elif event == RTN_CAR:
         # return the car
         reply_id = REPLY_MSG
 
     elif event == STATUS_SYNC:
-        # sync status / send heart beat pkgs
+        # sync status
         reply_id = STATUS_SYNC
 
     elif event == LOG_SYNC:
         # sync logs
         reply_id = LOG_SYNC
+        data_to_diliver['signal']=''
 
     elif event == 'PREPARE_FOR_BLUETOOTH':
         # sync
-        data_to_diliver['signal']='UNLOCKED'
-
+        pass
     elif event== 'SS':
         reply_id = LOG_SYNC
         msg='' #the right face or not
@@ -111,7 +108,6 @@ def event_handler(data: str) -> str:
         # other situations
         reply_id = REPLY_MSG
 
-    return data_to_diliver
 
 
 def initialize_process(handler) -> None:

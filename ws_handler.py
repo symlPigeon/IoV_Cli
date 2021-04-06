@@ -33,16 +33,8 @@ class ws_handler():
         :return:
         '''
         msg = await self.__websocket.recv()
-        # print("recv msg" + msg)
+        print("recv msg" + msg)
         self.__message_queue.append(msg)
-
-    async def __process_msg_signal(self, msg: dict) -> None:
-        if msg['data_to_send'] is not None:
-            self.__send_queue.append(msg["data_to_send"])
-        if msg['signal']=='PREPARE_FOR_BLUETOOTH':
-            self.__message_queue.append("PREPARE_FOR_BLUETOOTH")    #...
-        # if msg['signal']=='UNLOCKED':
-        #     self.set_time_task() #连续认证的定时
 
     async def __processor_handler(self) -> None:
         '''
@@ -53,7 +45,7 @@ class ws_handler():
             return
         msg = ws_event_handler.event_handler(self.__message_queue[0])  # 这里是调用消息处理的函数
         self.__message_queue.remove(self.__message_queue[0])
-        self.__process_msg_signal(msg)
+        self.__send_queue.append(msg)
 
     async def __consumer_handler(self) -> None:
         '''
@@ -64,20 +56,22 @@ class ws_handler():
             try:
                 data = json.dumps(dict(
                     id=self.__CAR_ID,
-                    data=data
+                    data=msg
                 ))
                 await self.__websocket.send(msg)
-            except:
+            except Exception as e:
+                print("An exception occurred when processing the msg to be send\n{}".format(e))
                 return  # 万一没发送成功，那就不remove消息队列里面的东西了
                 # 不过有一说一，我感觉这句话没啥用
             self.__send_queue.remove(msg)
-            print("send_msg: " + msg + "at" + str(time.time()))
+            print("send_msg: " + str(msg) + "at" + str(time.time()))
 
     async def __handler(self) -> None:
         '''
         内部类，调用生产、加工、消费
         :return:
         '''
+        # print("entering handler")
         consumer_task = asyncio.ensure_future(
             self.__producer_handler()
         )
@@ -97,7 +91,7 @@ class ws_handler():
     def checkOccupationState(self) -> bool:
         return self.__occupiedState
 
-    async def start(self, interval_time = 0) -> None:
+    async def start(self, interval_time = 1) -> None:
         '''
         开始client的ws交互操作。
         1、开启连接（如果失败就重试
@@ -115,8 +109,10 @@ class ws_handler():
             except ConnectionError:
                 await asyncio.sleep(1)
         while True:
-            # print(self.__send_queue)
-            # print(self.__message_queue)
+            if self.__send_queue!=[]:
+                print(self.__send_queue)
+            if self.__message_queue!=[]:
+                print(self.__message_queue)
             for tasks in self.__running_list:
                 if time.time() - self.__running_list[tasks]["timestamp"] > self.__running_list[tasks]["interval"]:
                     self.add_msg_queue(
