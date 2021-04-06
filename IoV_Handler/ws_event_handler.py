@@ -36,21 +36,22 @@ STATUS_SYNC = 5
 UNEXPECTED_DATA = 6
 
 
-def decrypt(data, *args):
+def decrypt(data: Union[str, bytes], *args) -> Union[str, bytes]:
     # 解密部分
     return data
 
 
-def encrypt(data, *args):
+def encrypt(data: Union[str, bytes], *args) -> Union[str, bytes]:
     # 加密部分
     return data
 
 
-def json_data_constructor(event: int, data: str, timestamp: int) -> dict:
+def json_data_constructor(event: int, data: str, status_code:int, timestamp: int) -> dict:
     # 构造json
     return {
         "event": event,
         "data": data,
+        "status_code": status_code,
         "timestamp:": timestamp
     }
 
@@ -60,27 +61,46 @@ def json_parser(data: str) -> List:
     try:
         data = decrypt(data)
         json_data = json.loads(data)
-        return [json_data["event"], json_data["data"], json_data["timestamp"]]
+        return [json_data["event"], json_data["data"], json_data["status_code"], json_data["timestamp"]]
     except json.JSONDecodeError as e:
         return [UNEXPECTED_DATA, "Unexpected data format!", int(time.time())]
     except KeyError as e:
         return [UNEXPECTED_DATA, "Missing Value", int(time.time())]
 
 
-def event_handler(data: str) -> Union[str, bytes]:
+def event_handler(handler, data: str) -> Union[str, bytes]:
+    # 感觉降低websocket模块和这边事件处理模块的耦合挺重要的，要不然debug起来简直就是一堆大屎山
+    # 每一次ws模块收到message之后，就会调用这里的函数event_handler，传入一个被加密的参数data
+    # 如果需要额外发送数据的话可以直接回调handler的 *_time_tasker 方法
+    # 这样子避免修改ws模块的内容（我也不想修改了）
     # 事件处理
     # 1. producer方法通过websocket接收到服务器端发送的消息，存入message_queue队列中。
     # 2. processor按照顺序读取message_queue中的数据，发送到这里处理。
     # 3. 这里处理完了生成数据发送回去，交由consumer进行发送等操作。
-    [event, dat, timestamp] = json_parser(data)
+
+    # 事件ID，数据（可以为空字符串），状态码（0为正常），时间戳
+    [event, dat, status_code, timestamp] = json_parser(data)
+
+    if timestamp > time.time() or timestamp < time.time() - 60:
+        # 时间戳异常
+        return encrypt(json.dumps(
+            json_data_constructor(
+                REPLY_MSG,
+                "INCORRECT_TIMESTAMP",
+                1,
+                time.time()
+            )
+        ))
 
     msg = ""
+    status_code = 0
     if event == UNLOCK_READY:
         # function for rent the car
-        msg = "i'm ok!"
+        msg = ""
         reply_id = REPLY_MSG
         
     elif event == PUSH_HASH:
+        msg = ""
         # recv feature data
         reply_id = REPLY_MSG
 
@@ -95,19 +115,26 @@ def event_handler(data: str) -> Union[str, bytes]:
     elif event == LOG_SYNC:
         # sync logs
         reply_id = LOG_SYNC
-        data_to_diliver['signal']=''
-
-    elif event == 'PREPARE_FOR_BLUETOOTH':
-        # sync
-        pass
-    elif event== 'SS':
-        reply_id = LOG_SYNC
-        msg='' #the right face or not
 
     else:  # UNEXPECTED STATUS
         # other situations
+        msg = "UNEXPECTED_STATUS"
+        status_code = 1
         reply_id = REPLY_MSG
 
+    # 返回值
+    # 所有返回值都是 encrypt({事件ID，消息，时间戳})的格式
+    return encrypt(
+        json.dumps(
+            json_data_constructor(
+                reply_id, 
+                msg,
+                status_code, 
+                time.time()
+                )
+            )
+        )
+    # 然后在ws模块中再加以处理成 {车辆id，加密的payload} 格式发送给服务器
 
 
 def initialize_process(handler) -> None:
