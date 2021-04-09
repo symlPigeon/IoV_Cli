@@ -201,3 +201,15 @@ class ws_handler():
         返回车辆对应的session key。。。
         """
         return self.__CAR_PRIVATE_SESSION_KEY
+
+    def set_status_occupied(self) -> None:
+        """
+        设置本地状态为借出。
+        """
+        self.__occupiedState = True
+
+    def set_status_idle(self) -> None:
+        """
+        设置本地状态为可用。
+        """
+        self.__occupiedState = False
