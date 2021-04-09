@@ -1,6 +1,7 @@
 import json
 import time
 from typing import List, Union
+from IoV_Handler.client_func import *
 
 '''
 // server to car
@@ -10,21 +11,21 @@ from typing import List, Union
 // car to server
 #define LOG_SYNC			3		// 车辆同步日志
 // both
-#define STATUS_SYNC			4		// 车辆和服务器同步状态
-#define REPLY_MSG			5		// 回应消息
-// #define UNEXPECTED_DATA	6	    // 数据错误(不要把这个回给服务器，自己处理)
+#define REPLY_MSG			4		// 回应消息
+// #define UNEXPECTED_DATA	5	    // 数据错误(不要把这个回给服务器，自己处理)
+#define CHECK_HASH          6       // 进行生物校验，用于本地事件
 
 server: 0
-car:    5
+car:    4
 server: 1
-car:    5
+car:    4
 
 car:    3
 server: 5
 (要是没发出去就忽略掉x)
 
 server: 2
-car:    5
+car:    4
 '''
 
 UNLOCK_READY = 0
@@ -32,8 +33,8 @@ PUSH_HASH = 1
 RTN_CAR = 2
 LOG_SYNC = 3
 REPLY_MSG = 4
-STATUS_SYNC = 5
-UNEXPECTED_DATA = 6
+UNEXPECTED_DATA = 5
+CHECK_HASH = 6
 
 
 def decrypt(data: Union[str, bytes], *args) -> Union[str, bytes]:
@@ -95,26 +96,47 @@ def event_handler(handler, data: str) -> Union[str, bytes]:
     msg = ""
     status_code = 0
     if event == UNLOCK_READY:
-        # function for rent the car
-        msg = ""
-        reply_id = REPLY_MSG
+        if handler.checkOccupationState():  # 如果已经被占用，那多半是这边或者数据库挂了
+            msg = "vehicle already occupied? check database status?"
+            status_code = 1
+            reply_id = REPLY_MSG
+        else:   # 正常分支
+            # function for rent the car
+            msg = "set status unlock successfully"
+            handler.set_status_occupied()
+            reply_id = REPLY_MSG
         
     elif event == PUSH_HASH:
-        msg = ""
+        msg = "recv hash info successfully"
         # recv feature data
+        set_bio_hash(data)
         reply_id = REPLY_MSG
+        handler.set_time_task("bio check", CHECK_HASH, 30, "")
 
     elif event == RTN_CAR:
+        if handler.checkOccupationState():
+            msg = "set status lock successfully"
+            clear_local_data()
+            handler.set_status_idle()
+            handler.delete_time_task("bio check")
+            status_code = 0
+        else:
+            msg = "vehicle not rented yet? check database status?"
+            status_code = 1
         # return the car
         reply_id = REPLY_MSG
-
-    elif event == STATUS_SYNC:
-        # sync status
-        reply_id = STATUS_SYNC
 
     elif event == LOG_SYNC:
         # sync logs
         reply_id = LOG_SYNC
+        msg = send_log_data()
+        status_code = 0
+        
+    elif event = CHECK_HASH:
+        reply_id = REPLY_MSG
+        msg = "doing bio hash check"
+        status_code = 0
+        check_hash()
 
     else:  # UNEXPECTED STATUS
         # other situations
