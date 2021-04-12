@@ -64,9 +64,9 @@ def json_parser(data: str) -> List:
         json_data = json.loads(data)
         return [json_data["event"], json_data["data"], json_data["status_code"], json_data["timestamp"]]
     except json.JSONDecodeError as e:
-        return [UNEXPECTED_DATA, "Unexpected data format!", int(time.time())]
+        return [UNEXPECTED_DATA, "Unexpected data format!", 1, int(time.time())]
     except KeyError as e:
-        return [UNEXPECTED_DATA, "Missing Value", int(time.time())]
+        return [UNEXPECTED_DATA, "Missing Value", 1, int(time.time())]
 
 
 def event_handler(handler, data: str) -> Union[str, bytes]:
@@ -132,7 +132,7 @@ def event_handler(handler, data: str) -> Union[str, bytes]:
         msg = send_log_data()
         status_code = 0
         
-    elif event = CHECK_HASH:
+    elif event == CHECK_HASH:
         reply_id = REPLY_MSG
         msg = "doing bio hash check"
         status_code = 0

@@ -26,6 +26,7 @@ class ws_handler():
             data = key_file.read()
             self.__CAR_ID = data.split('\n')[0]
             self.__CAR_PRIVATE_SESSION_KEY = data.split('\n')[1]
+            print("on start:\nid:{}\nprivate_session_key:{}".format(self.__CAR_ID,self.__CAR_PRIVATE_SESSION_KEY))
 
     async def __producer_handler(self) -> None:
         '''
@@ -58,7 +59,7 @@ class ws_handler():
                     id=self.__CAR_ID,
                     data=msg
                 ))
-                await self.__websocket.send(msg)
+                await self.__websocket.send(data)
             except Exception as e:
                 print("An exception occurred when processing the msg to be send\n{}".format(e))
                 return  # 万一没发送成功，那就不remove消息队列里面的东西了
@@ -119,6 +120,7 @@ class ws_handler():
                         {
                             "event": self.__running_list[tasks]["msg_type"],
                             "data": self.__running_list[tasks]["data"],
+                            "status_code": 0,
                             "timestamp": time.time()
                         })
                     self.__running_list[tasks]["timestamp"] = time.time()
