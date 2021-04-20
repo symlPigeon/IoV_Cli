@@ -21,12 +21,17 @@ class ws_handler():
         self.__websocket = None  # 用来操作的websocketsClientProtocol对象
         self.__running_list = {}  # 定时任务队列
         self.__url = url  # 服务器url
-        self.__occupiedState = False
-        with open("session_key", "r") as key_file:
-            data = key_file.read()
-            self.__CAR_ID = data.split('\n')[0]
-            self.__CAR_PRIVATE_SESSION_KEY = data.split('\n')[1]
-            print("on start:\nid:{}\nprivate_session_key:{}".format(self.__CAR_ID,self.__CAR_PRIVATE_SESSION_KEY))
+        self.__occupiedState = False  # 被占用状态，用于本地和服务器的同步状态确定
+        self.__connection_state = False
+        try:
+            with open("session_key", "r") as key_file:
+                data = key_file.read()
+                self.__CAR_ID = data.split('\n')[0]
+                self.__CAR_PRIVATE_SESSION_KEY = data.split('\n')[1]
+                print("on start:\nid:{}\nprivate_session_key:{}".format(self.__CAR_ID,self.__CAR_PRIVATE_SESSION_KEY))
+        except FileNotFoundError:  # 极端情况，估计不会发生……
+            print()
+            exit
 
     async def __producer_handler(self) -> None:
         '''
@@ -115,6 +120,7 @@ class ws_handler():
             if self.__message_queue!=[]:
                 print(self.__message_queue)
             for tasks in self.__running_list:
+                # 笨方法
                 if time.time() - self.__running_list[tasks]["timestamp"] > self.__running_list[tasks]["interval"]:
                     self.add_msg_queue(
                         {
@@ -124,10 +130,12 @@ class ws_handler():
                             "timestamp": time.time()
                         })
                     self.__running_list[tasks]["timestamp"] = time.time()
+            # start main #
             try:
                 await asyncio.sleep(interval_time)
                 await self.__websocket.ensure_open()
                 await self.__handler()
+            #  end  main #
             except websockets.ConnectionClosed:
                 print("unexpected websocket close!")
                 await self.__processor_handler()
